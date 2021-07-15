@@ -41,9 +41,10 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 
-const Sidebar = ({open, locations}) => {
+const Sidebar = ({open, locations, mapRef}) => {
 
   const [filter, setFilter] = useState('');
+  const [allPopups, setAllPopups] = useState([]);
 
   const filteredLocations = locations.filter(location => {
     return location.name.toLowerCase().includes(filter.toLowerCase());
@@ -54,7 +55,6 @@ const Sidebar = ({open, locations}) => {
       <SearchBar
         onChange={(e) => setFilter(e)}
         onCancelSearch={() => setFilter('')}
-        // onRequestSearch={() => console.log("onRequestSearch")}
         style={{
           position: 'fixed',
           width: '25%'
@@ -62,7 +62,26 @@ const Sidebar = ({open, locations}) => {
       />
       <div className="cards">
         {filteredLocations.map(location => 
-          <div className="cardBase">
+          <div 
+            className={"cardBase " + (('acknowledgement_name' in location) ? "suggestionCard" : "originalCard")} 
+            onMouseOver={() => {
+              if(!mapRef.current) return;
+              const coordinates = [location.longitude, location.latitude];
+              const popupHTML = `<strong>${location.name}</strong>`
+              var popup = new mapboxgl.Popup({
+                closeButton:  false,
+                closeOnClick: false
+              });
+
+              mapRef.current.flyTo({ center: coordinates, esssential: true })
+              popup.setLngLat(coordinates).setHTML(popupHTML).addTo(mapRef.current);
+              setAllPopups(prev => [...prev, popup]);
+            }
+          }
+            onMouseLeave={() => {
+              allPopups.forEach(popup => popup.remove());
+            }}
+          >
             <div className="cardTitle">
               {location.name}  
             </div>
@@ -86,6 +105,7 @@ function App() {
 
   const classes = useStyles();
   const mapContainer = useRef(null);
+  const mapRef = useRef(null);
   const [lng, setLng] = useState(-113.4938);
   const [lat, setLat] = useState(53.5461);
   const [zoom, setZoom] = useState(10);
@@ -119,6 +139,7 @@ function App() {
       center: [lng, lat],
       zoom: zoom
     });
+    mapRef.current = map
 
     // Add navigation control (the +/- zoom buttons)
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
@@ -253,7 +274,7 @@ function App() {
       </div>
       <div className="topSpacer"></div>
       <div className="mainContent">
-        <MemoizedSidebar open={open} locations={locations}/>
+        <MemoizedSidebar open={open} locations={locations} mapRef={mapRef}/>
         <div ref={mapContainer} className="map-container"/>
       </div>
     </>

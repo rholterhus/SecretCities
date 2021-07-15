@@ -61,11 +61,19 @@
   letter-spacing: 0.2em;
 }
 
-
 .cardBase {
   width: 100%;
   border: 1px solid black;
   overflow-x: hidden;
+  cursor: pointer;
+}
+
+.suggestionCard:hover {
+  background-color: orangered;
+}
+
+.originalCard:hover {
+  background-color: greenyellow;
 }
 
 .cardTitle {
