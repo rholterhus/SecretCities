@@ -22,15 +22,27 @@
 
 .topSpacer {
   height: 64px;
-  
+  z-index: -1;
+}
+
+.searchSpacer {
+  height: 48px;
+  z-index: -1;
+}
+
+.cards {
+  overflow-y: auto;
+  margin-top: 48px;
+  height: calc(100% - 64px);
 }
 
 .sidebar {
   z-index: 1 !important;
   background-color: white;
+  width: 25%;
   height: calc(100% - 64px);
   position: absolute;
-  transition: width 1s;
+  transition: margin-left 1s;
 }
 
 .mapboxgl-popup {
@@ -47,4 +59,23 @@
 .logo {
   color: white;
   letter-spacing: 0.2em;
+}
+
+
+.cardBase {
+  width: 100%;
+  border: 1px solid black;
+  overflow-x: hidden;
+}
+
+.cardTitle {
+  text-align: center;
+  margin-top: 5px;
+  font-weight: 700;
+}
+
+.cardDescription {
+  margin-left: 10px;
+  margin-right: 10px;
+  margin-bottom: 5px;
 }

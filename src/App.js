@@ -3,13 +3,18 @@ import './App.css';
 import React, { useRef, useEffect, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 
+
 import { makeStyles, useTheme } from '@material-ui/core/styles';
 import IconButton from '@material-ui/core/IconButton';
 import MenuIcon from '@material-ui/icons/Menu';
 import Switch from '@material-ui/core/Switch';
+import ChevronRightIcon from '@material-ui/icons/ChevronRight';
+import SearchBar from "material-ui-search-bar";
+
 
 const axios = require('axios');
-
+// eslint-disable-next-line import/no-webpack-loader-syntax
+mapboxgl.workerClass = require('worker-loader!mapbox-gl/dist/mapbox-gl-csp-worker').default;
 
 mapboxgl.accessToken = 'pk.eyJ1IjoiaG9sdGVyaHVzIiwiYSI6ImNrOWhkem96ZDB3Z2EzZ25hM3NhMXRuY2QifQ._wWey2Tkg64i1vzd1tUIoQ';
 
@@ -29,8 +34,51 @@ const useStyles = makeStyles((theme) => ({
     right: 0,
     top: 0,
     margin: theme.spacing(1),
+  },
+  cardRoot: {
+    width: '100%',
   }
 }));
+
+
+const Sidebar = ({open, locations}) => {
+
+  const [filter, setFilter] = useState('');
+
+  const filteredLocations = locations.filter(location => {
+    return location.name.toLowerCase().includes(filter.toLowerCase());
+  })
+
+  return (
+    <div className="sidebar" style={{ marginLeft: open ? "0%" : "-25%"}}>
+      <SearchBar
+        onChange={(e) => setFilter(e)}
+        onCancelSearch={() => setFilter('')}
+        // onRequestSearch={() => console.log("onRequestSearch")}
+        style={{
+          position: 'fixed',
+          width: '25%'
+        }}
+      />
+      <div className="cards">
+        {filteredLocations.map(location => 
+          <div className="cardBase">
+            <div className="cardTitle">
+              {location.name}  
+            </div>
+            <br/>
+            <div className="cardDescription">
+              {location.description.slice(0, 100)}  
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+
+const MemoizedSidebar = React.memo(Sidebar);
 
 
 
@@ -82,54 +130,50 @@ function App() {
     });
 
     map.on('load', () => {
-      // Load an image from an external URL.
-        map.loadImage('https://docs.mapbox.com/mapbox-gl-js/assets/cat.png', (error, image) => {
-          if (error) throw error;
-          // Add the image to the map style.
-          map.addImage('cat', image);
        
-          // Add a data source containing one point feature.
-          map.addSource('locations', {
-            'type': 'geojson',
-            'generateId': true,
-            'data': {
-              'type': 'FeatureCollection',
-              'features': locations.map(location => {
-                return {
-                  'type': 'Feature',
-                  "id": location.id,
-                  'properties': {
-                    'description': '<strong>Make it Mount Pleasant</strong><p>Make it Mount Pleasant is a handmade and vintage market and afternoon of live entertainment and kids activities. 12:00-6:00 p.m.</p>',
-                    'suggestion': 'acknowledgement_name' in location
-                  },
-                  'geometry': {
-                    'type': 'Point',
-                    'coordinates': [location.longitude, location.latitude]
-                  }
+        // Add a data source containing one point feature.
+        map.addSource('locations', {
+          'type': 'geojson',
+          'generateId': true,
+          'data': {
+            'type': 'FeatureCollection',
+            'features': locations.map(location => {
+              return {
+                'type': 'Feature',
+                "id": location.id,
+                'properties': {
+                  'title': location.name,
+                  'description': '<strong>Make it Mount Pleasant</strong><p>Make it Mount Pleasant is a handmade and vintage market and afternoon of live entertainment and kids activities. 12:00-6:00 p.m.</p>',
+                  'suggestion': 'acknowledgement_name' in location,
+                  'image': location.images[0]
+                },
+                'geometry': {
+                  'type': 'Point',
+                  'coordinates': [location.longitude, location.latitude]
                 }
-              })
-            }
-          });
-      
-          map.addLayer({
-            'id': 'locations',
-            'type': 'circle',
-            'source': 'locations',
-            'paint': {
-              'circle-color': [
-                'case',
-                ['boolean',['feature-state', 'hover'], false], '#000',
-                ['boolean',['get', 'suggestion'], false], '#ff0000',
-                '#00ff00',
-              ],
-              'circle-radius': 10,
-              'circle-stroke-width': 2,
-              'circle-stroke-color': '#ffffff'
-            }
-          });
-
-
+              }
+            })
+          }
         });
+    
+        map.addLayer({
+          'id': 'locations',
+          'type': 'circle',
+          'source': 'locations',
+          'paint': {
+            'circle-color': [
+              'case',
+              ['boolean',['feature-state', 'hover'], false], '#000',
+              ['boolean',['get', 'suggestion'], false], '#ff0000',
+              '#00ff00',
+            ],
+            'circle-radius': 10,
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#ffffff'
+          }
+        });
+
+
       });
 
       // Create a popup, but don't add it to the map yet.
@@ -138,13 +182,13 @@ function App() {
         closeOnClick: false
       });
 
-      var quakeID = null;
+      var hoveredID = null;
 
       map.on('mousemove', 'locations', (e) => {
 
         map.getCanvas().style.cursor = 'pointer';
         var coordinates = e.features[0].geometry.coordinates.slice();
-        var description = e.features[0].properties.description;
+        var popupHTML = `<strong>${e.features[0].properties.title}</strong>`
 
         // Ensure that if the map is zoomed out such that multiple
         // copies of the feature are visible, the popup appears
@@ -153,21 +197,21 @@ function App() {
           coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
         }
          
-        popup.setLngLat(coordinates).setHTML(description).addTo(map);
+        popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
 
         if (e.features.length > 0) {
-          if (quakeID) {
+          if (hoveredID) {
             map.setFeatureState({
               source: 'locations',
-              id: quakeID,
+              id: hoveredID,
             }, {
               hover: false
             });
           }
-          quakeID = e.features[0].id;
+          hoveredID = e.features[0].id;
           map.setFeatureState({
             source: 'locations',
-            id: quakeID,
+            id: hoveredID,
           }, {
             hover: true
           });
@@ -176,15 +220,15 @@ function App() {
     });
 
     map.on("mouseleave", "locations", function() {
-      if (quakeID != null) {
+      if (hoveredID != null) {
         map.setFeatureState({
           source: 'locations',
-          id: quakeID
+          id: hoveredID
         }, {
           hover: false
         });
       }
-      quakeID = null;
+      hoveredID = null;
       map.getCanvas().style.cursor = '';
       popup.remove();
     });
@@ -200,7 +244,7 @@ function App() {
           className={classes.menuButton}
           onClick={() => setOpen(prev => !prev)}
         >
-            <MenuIcon className={classes.menuIcon}/>
+            {open ? <MenuIcon className={classes.menuIcon}/> : <ChevronRightIcon className={classes.menuIcon}/> }
         </IconButton>
         <div className="logo">
           YEGSECRETS
@@ -209,8 +253,7 @@ function App() {
       </div>
       <div className="topSpacer"></div>
       <div className="mainContent">
-        <div className="sidebar" style={{ width: open ? "25%" : 0}}>
-        </div>
+        <MemoizedSidebar open={open} locations={locations}/>
         <div ref={mapContainer} className="map-container"/>
       </div>
     </>
