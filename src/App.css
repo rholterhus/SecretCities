@@ -33,17 +33,38 @@
 .cards {
   overflow-y: auto;
   margin-top: 48px;
-  height: calc(100% - 64px);
+  height: calc(100% - 48px);
+}
+
+.cards::-webkit-scrollbar {
+  width: 10px;
+}
+
+.cards::-webkit-scrollbar-track {
+  background: #f5f5f5;
+  border-right: 1px solid black;
+}
+
+.cards::-webkit-scrollbar-thumb {
+  background-color: black;
 }
 
 .sidebar {
-  z-index: 1 !important;
-  background-color: white;
   width: 25%;
+  z-index: 1 !important;
   height: calc(100% - 64px);
   position: absolute;
   transition: margin-left 1s;
 }
+
+.open {
+  margin-left: 0%;
+}
+
+.closed {
+  margin-left: -25%;
+}
+
 
 .mapboxgl-popup {
   max-width: 400px;
@@ -55,7 +76,6 @@
   height: calc(100% - 64px);
 }
 
-
 .logo {
   color: white;
   letter-spacing: 0.2em;
@@ -63,18 +83,16 @@
 
 .cardBase {
   width: 100%;
+  background-color: #f5f5f5;
   border: 1px solid black;
   overflow-x: hidden;
   cursor: pointer;
 }
 
-.suggestionCard:hover {
+.cardBase:hover {
   background-color: orangered;
 }
 
-.originalCard:hover {
-  background-color: greenyellow;
-}
 
 .cardTitle {
   text-align: center;
@@ -86,4 +104,20 @@
   margin-left: 10px;
   margin-right: 10px;
   margin-bottom: 5px;
+}
+
+@media only screen and (max-width: 768px) {
+  /* For mobile phones: */
+  .sidebar {
+    width: 100%;
+  }
+  .closed {
+    margin-left: -100%;
+  }
+  .search {
+    width: 100%;
+  }
+  .sidebar {
+    background-color: #f5f5f5;
+  }
 }

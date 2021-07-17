@@ -8,7 +8,7 @@ import { makeStyles, useTheme } from '@material-ui/core/styles';
 import IconButton from '@material-ui/core/IconButton';
 import MenuIcon from '@material-ui/icons/Menu';
 import Switch from '@material-ui/core/Switch';
-import ChevronRightIcon from '@material-ui/icons/ChevronRight';
+import ChevronLeftIcon from '@material-ui/icons/ChevronLeft';
 import SearchBar from "material-ui-search-bar";
 
 
@@ -41,46 +41,75 @@ const useStyles = makeStyles((theme) => ({
 }));
 
 
+const buildPopup = (title, image) => {
+  let popupHTML = `<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">`
+  popupHTML += `<strong>${title}</strong>`
+  popupHTML += image ? `<img src="https://s3-us-west-2.amazonaws.com/yeg-secrets/${image}\" style="max-width: 30vmin; max-height: 25vmin;"/>` : ''
+  popupHTML += `</div>`
+  return popupHTML;
+}
+
+
 const Sidebar = ({open, locations, mapRef}) => {
 
   const [filter, setFilter] = useState('');
-  const [allPopups, setAllPopups] = useState([]);
+
+  const filterUsed = /[a-zA-Z]/g.test(filter);
 
   const filteredLocations = locations.filter(location => {
-    return location.name.toLowerCase().includes(filter.toLowerCase());
+    return !filterUsed || location.name.toLowerCase().includes(filter.toLowerCase());
   })
 
+  useEffect(() => {
+    if (mapRef.current != null) {
+      locations.forEach(location => {
+        mapRef.current.setFeatureState({source: 'locations', id: location.id}, { filtered: false });
+      })
+      if (filterUsed) {
+        filteredLocations.forEach(location => {
+          mapRef.current.setFeatureState({source: 'locations', id: location.id}, { filtered: true });
+        })
+      }
+    }
+  }, [filter]);
+
   return (
-    <div className="sidebar" style={{ marginLeft: open ? "0%" : "-25%"}}>
+    <div className={"sidebar " + (open ? "open" : "closed")}>
       <SearchBar
         onChange={(e) => setFilter(e)}
         onCancelSearch={() => setFilter('')}
         style={{
-          position: 'fixed',
-          width: '25%'
+          position: 'absolute',
+          width: '100%',
+          borderRadius: 0,
+          borderBottom: '1px solid black',
+          borderRight: '1px solid black',
+          boxShadow: 'none',
+          backgroundColor: '#f5f5f5',
         }}
       />
-      <div className="cards">
+      <div className="cards" id="cards">
         {filteredLocations.map(location => 
           <div 
-            className={"cardBase " + (('acknowledgement_name' in location) ? "suggestionCard" : "originalCard")} 
-            onMouseOver={() => {
+            className="cardBase"
+            id={"location-" + location.id}
+            onPointerDown={() => {
               if(!mapRef.current) return;
               const coordinates = [location.longitude, location.latitude];
-              const popupHTML = `<strong>${location.name}</strong>`
+              const popupHTML = buildPopup(location.name, location.images[0]);
               var popup = new mapboxgl.Popup({
                 closeButton:  false,
-                closeOnClick: false
+                closeOnClick: false,
               });
 
-              mapRef.current.flyTo({ center: coordinates, esssential: true })
+              mapRef.current.flyTo({ center: coordinates, esssential: true, speed: 0.35 })
+              mapRef.current.fire('closeAllPopups');
               popup.setLngLat(coordinates).setHTML(popupHTML).addTo(mapRef.current);
-              setAllPopups(prev => [...prev, popup]);
+              mapRef.current.on('closeAllPopups', () => {
+                popup.remove();
+              });
             }
           }
-            onMouseLeave={() => {
-              allPopups.forEach(popup => popup.remove());
-            }}
           >
             <div className="cardTitle">
               {location.name}  
@@ -124,9 +153,9 @@ function App() {
 
   useEffect(() => {
     const originalsPromise = axios.get('https://v1.api.yegsecrets.ca/location/all');
-    const suggestionsPromise = axios.get('http://api.yegsecrets.ca/suggestions/limited');
-    Promise.all([originalsPromise, suggestionsPromise]).then(([originals, suggestions]) => {
-      setLocations([...originals.data, ...suggestions.data]);
+    // const suggestionsPromise = axios.get('http://api.yegsecrets.ca/suggestions/limited');
+    Promise.all([originalsPromise]).then(([originals]) => {
+      setLocations([...originals.data]);
     });
 
   }, []);
@@ -155,7 +184,6 @@ function App() {
         // Add a data source containing one point feature.
         map.addSource('locations', {
           'type': 'geojson',
-          'generateId': true,
           'data': {
             'type': 'FeatureCollection',
             'features': locations.map(location => {
@@ -165,8 +193,7 @@ function App() {
                 'properties': {
                   'title': location.name,
                   'description': '<strong>Make it Mount Pleasant</strong><p>Make it Mount Pleasant is a handmade and vintage market and afternoon of live entertainment and kids activities. 12:00-6:00 p.m.</p>',
-                  'suggestion': 'acknowledgement_name' in location,
-                  'image': location.images[0]
+                  'image': location.images[0],
                 },
                 'geometry': {
                   'type': 'Point',
@@ -184,23 +211,22 @@ function App() {
           'paint': {
             'circle-color': [
               'case',
-              ['boolean',['feature-state', 'hover'], false], '#000',
-              ['boolean',['get', 'suggestion'], false], '#ff0000',
-              '#00ff00',
+              ['boolean', ['feature-state', 'hover'], false], '#000',
+              ['boolean', ['feature-state', 'filtered'], false], '#ff00ff',
+              '#ff0000',
             ],
             'circle-radius': 10,
             'circle-stroke-width': 2,
-            'circle-stroke-color': '#ffffff'
+            'circle-stroke-color': '#000000'
           }
         });
 
 
       });
 
-      // Create a popup, but don't add it to the map yet.
       var popup = new mapboxgl.Popup({
         closeButton:  false,
-        closeOnClick: false
+        closeOnClick: false,
       });
 
       var hoveredID = null;
@@ -208,8 +234,8 @@ function App() {
       map.on('mousemove', 'locations', (e) => {
 
         map.getCanvas().style.cursor = 'pointer';
-        var coordinates = e.features[0].geometry.coordinates.slice();
-        var popupHTML = `<strong>${e.features[0].properties.title}</strong>`
+        let coordinates = e.features[0].geometry.coordinates.slice();
+        let popupHTML = buildPopup(e.features[0].properties.title, e.features[0].properties.image);
 
         // Ensure that if the map is zoomed out such that multiple
         // copies of the feature are visible, the popup appears
@@ -217,7 +243,8 @@ function App() {
         while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
           coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
         }
-         
+        
+        mapRef.current.fire('closeAllPopups');
         popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
 
         if (e.features.length > 0) {
@@ -265,7 +292,7 @@ function App() {
           className={classes.menuButton}
           onClick={() => setOpen(prev => !prev)}
         >
-            {open ? <MenuIcon className={classes.menuIcon}/> : <ChevronRightIcon className={classes.menuIcon}/> }
+            {open ? <ChevronLeftIcon className={classes.menuIcon}/> : <MenuIcon className={classes.menuIcon}/> }
         </IconButton>
         <div className="logo">
           YEGSECRETS
