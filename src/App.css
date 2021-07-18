@@ -124,10 +124,15 @@
 }
 
 .cardButton {
+  background-color: #ff0000;
   height: 100%;
   width: 100%;
   border-radius: 50%;
   border: 2px solid black;
+}
+
+.filterUsed  {
+  background-color: #ff00ff;
 }
 
 .cardButton:hover {
@@ -146,6 +151,10 @@
   background-color: #f5f5f5;
   z-index: 1;
   right: 0;
+}
+
+.suggestionScreen {
+  overflow-y: scroll;
 }
 
 .modalTitle {
@@ -193,7 +202,21 @@
   text-align: center;
 }
 
-@import "~react-image-gallery/styles/css/image-gallery.css";
+.suggestionTitle {
+  padding-top: 20px;
+  overflow-y: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.suggestionDescription {
+  padding-top: 20px;
+  overflow-y: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
 @media only screen and (max-width: 768px) {
   /* For mobile phones: */
