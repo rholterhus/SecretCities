@@ -126,7 +126,7 @@ const Sidebar = ({open, locations, mapRef}) => {
           <div 
             className="cardBase"
             id={"location-" + location.location_id}
-            onPointerDown={() => history.replace('/MTLsecrets/' + location.name)}
+            onPointerDown={() => history.replace(location.name)}
           >
             <div className="cardButtonContainer">
               <div 
@@ -183,7 +183,7 @@ function App() {
   const [lng, setLng] = useState(-73.6573);
   const [lat, setLat] = useState(45.5017);
   const [zoom, setZoom] = useState(10);
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const [mapboxStyle, setMapboxStyle] = useState('mapbox://styles/mapbox/streets-v11');
 
   const [locations, setLocations] = useState([]);
@@ -304,7 +304,7 @@ function App() {
       var hoveredID = null;
 
       map.on('mousedown', 'locations', (e) => {
-        history.push('MTLsecrets/' + e.features[0].properties.title);
+        history.push(e.features[0].properties.title);
       })
 
       map.on('mousemove', 'locations', (e) => {
@@ -373,7 +373,7 @@ function App() {
         <div className="logo">
           MTLSECRETS
         </div>
-        <Button size='small' variant='contained' onClick={() => history.push('MTLsecrets/suggest')} className={classes.suggestButton}>
+        <Button size='small' variant='contained' onClick={() => history.push('suggest')} className={classes.suggestButton}>
           Suggest
         </Button>
       </div>
@@ -414,17 +414,17 @@ const SuggestionPage = () => {
   return (
     <div className="modal suggestionScreen">
       <div className="modalTitle">
-        Suggest Location
+        Suggest Location (Coming Soon)
         <IconButton
         className={classes.modalCancelButton}
         onClick={() => {
-          history.replace('/MTLsecrets')
+          history.replace('/MTLsecrets/')
         }}
         >
             <CancelIcon className={classes.modalCancelIcon}/>
         </IconButton>
       </div>
-      <div className="suggestionTitle">
+      {/* <div className="suggestionTitle">
         <TextField id="suggestionTitle" onChange={(e) => setTitle(e.target.value)} label="Location Title" variant="outlined"/>
       </div>
       <div className="suggestionDescription">
@@ -437,7 +437,7 @@ const SuggestionPage = () => {
         <Button variant="contained" size="small" onClick={() => sendRequest(title, description, coordinates)}>
           Submit
         </Button>
-      </div>
+      </div> */}
     </div>
   )
 }
@@ -463,7 +463,7 @@ const Modal = ({ locations }) => {
         <IconButton
         className={classes.modalCancelButton}
         onClick={() => {
-          history.replace('/MTLsecrets')
+          history.replace('/MTLsecrets/')
         }}
         >
             <CancelIcon className={classes.modalCancelIcon}/>
