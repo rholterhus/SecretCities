@@ -32,7 +32,6 @@
 
 .cards {
   overflow-y: auto;
-  margin-top: 48px;
   height: calc(100% - 48px);
 }
 
@@ -42,7 +41,7 @@
 
 .cards::-webkit-scrollbar-track {
   background: #f5f5f5;
-  border-right: 1px solid black;
+  border-left: 1px solid black;
 }
 
 .cards::-webkit-scrollbar-thumb {
@@ -52,9 +51,10 @@
 .sidebar {
   width: 25%;
   z-index: 1 !important;
-  height: calc(100% - 64px);
-  position: absolute;
+  height: 100%;
   transition: margin-left 1s;
+  border: 1px solid black;
+  background-color: #f5f5f5;
 }
 
 .open {
@@ -74,6 +74,8 @@
 .mainContent {
   width: 100%;
   height: calc(100% - 64px);
+  display: flex;
+  flex-direction: row;
 }
 
 .logo {
@@ -82,29 +84,116 @@
 }
 
 .cardBase {
+  position: relative;
   width: 100%;
   background-color: #f5f5f5;
   border: 1px solid black;
+  border-right: 0;
   overflow-x: hidden;
   cursor: pointer;
 }
 
 .cardBase:hover {
-  background-color: orangered;
+  background-color: lightgray;
 }
 
-
 .cardTitle {
-  text-align: center;
   margin-top: 5px;
+  margin-left: 5px;
+  width: 75%;
+  text-align: left;
+  overflow-x: hidden;
   font-weight: 700;
 }
 
 .cardDescription {
-  margin-left: 10px;
-  margin-right: 10px;
+  text-align: left;
+  margin-left: 5px;
+  margin-right: 5px;
   margin-bottom: 5px;
 }
+
+.cardButtonContainer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin-top: 7px;
+  margin-right: 7px;
+  height: 30px;
+  width: 30px;
+}
+
+.cardButton {
+  height: 100%;
+  width: 100%;
+  border-radius: 50%;
+  border: 2px solid black;
+}
+
+.cardButton:hover {
+  background-color: #000;
+}
+
+.mapboxgl-popup-content {
+  padding: 0px 10px 10px;
+}
+
+.modal {
+  position: relative;
+  flex-grow: 1;
+  width: 75%;
+  height: 100%;
+  background-color: #f5f5f5;
+  z-index: 1;
+  right: 0;
+}
+
+.modalTitle {
+  text-align: center;
+  font-weight: 700;
+  font-size: xx-large;
+  height: 10%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modalImagesContainer {
+  position: relative;
+  flex-grow: 1;
+  width: 100%;
+  height: 70%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.modalImage {
+  max-width: 60%;
+  max-height: 90%;
+  box-shadow: rgba(14, 30, 37, 0.12) 0px 2px 4px 0px, rgba(14, 30, 37, 0.32) 0px 2px 16px 0px;
+}
+
+.modalImage > img {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.modalDescriptionContainer {
+  text-align: center;
+  font-weight: 600;
+  font-size: medium;
+  height: 20%;
+  overflow-y: auto;
+}
+
+.modalDescription {
+  margin: 10px;
+  text-align: center;
+}
+
+@import "~react-image-gallery/styles/css/image-gallery.css";
 
 @media only screen and (max-width: 768px) {
   /* For mobile phones: */
@@ -117,7 +206,16 @@
   .search {
     width: 100%;
   }
-  .sidebar {
+  
+  .cardButton {
+    display: none;
+  }
+
+  .modal {
+    position: absolute;
+    width: 100%;
+    height: 100%;
     background-color: #f5f5f5;
+    z-index: 2;
   }
 }

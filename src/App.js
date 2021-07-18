@@ -9,7 +9,15 @@ import IconButton from '@material-ui/core/IconButton';
 import MenuIcon from '@material-ui/icons/Menu';
 import Switch from '@material-ui/core/Switch';
 import ChevronLeftIcon from '@material-ui/icons/ChevronLeft';
+import ChevronRightIcon from '@material-ui/icons/ChevronRight';
 import SearchBar from "material-ui-search-bar";
+import CancelIcon from '@material-ui/icons/Cancel';
+
+
+import ImageGallery from 'react-image-gallery';
+
+
+import { Switch as RouterSwitch, Route, Link, useRouteMatch, useParams, useHistory} from 'react-router-dom';
 
 
 const axios = require('axios');
@@ -29,15 +37,30 @@ const useStyles = makeStyles((theme) => ({
   menuIcon: {
     fill: 'white'
   },
+  modalCancelButton: {
+    position: 'absolute',
+    right: 0,
+  },
+  modalCancelIcon: {
+    fill: 'black',
+    width: "35px",
+    height: "35px"
+  },
   switch: {
     position: 'absolute',
     right: 0,
     top: 0,
-    margin: theme.spacing(1),
+    margin: theme.spacing(0.5),
   },
   cardRoot: {
     width: '100%',
-  }
+  },
+  modalImageButton: {
+    maxWidth: '10%',
+  },
+  modalImageButtonIcon: {
+    maxWidth: '10%',
+  },
 }));
 
 
@@ -53,6 +76,7 @@ const buildPopup = (title, image) => {
 const Sidebar = ({open, locations, mapRef}) => {
 
   const [filter, setFilter] = useState('');
+  const history = useHistory();
 
   const filterUsed = /[a-zA-Z]/g.test(filter);
 
@@ -79,11 +103,9 @@ const Sidebar = ({open, locations, mapRef}) => {
         onChange={(e) => setFilter(e)}
         onCancelSearch={() => setFilter('')}
         style={{
-          position: 'absolute',
           width: '100%',
           borderRadius: 0,
           borderBottom: '1px solid black',
-          borderRight: '1px solid black',
           boxShadow: 'none',
           backgroundColor: '#f5f5f5',
         }}
@@ -93,27 +115,34 @@ const Sidebar = ({open, locations, mapRef}) => {
           <div 
             className="cardBase"
             id={"location-" + location.id}
-            onPointerDown={() => {
-              if(!mapRef.current) return;
-              const coordinates = [location.longitude, location.latitude];
-              const popupHTML = buildPopup(location.name, location.images[0]);
-              var popup = new mapboxgl.Popup({
-                closeButton:  false,
-                closeOnClick: false,
-              });
-
-              mapRef.current.flyTo({ center: coordinates, esssential: true, speed: 0.35 })
-              mapRef.current.fire('closeAllPopups');
-              popup.setLngLat(coordinates).setHTML(popupHTML).addTo(mapRef.current);
-              mapRef.current.on('closeAllPopups', () => {
-                popup.remove();
-              });
-            }
-          }
+            onPointerDown={() => history.replace('/yegsecretsUAT/' + location.name)}
           >
-            <div className="cardTitle">
-              {location.name}  
-            </div>
+            <div className="cardButtonContainer">
+              <div 
+                className="cardButton"
+                style={{backgroundColor: filterUsed ? '#ff00ff' : 'red'}}
+                onMouseEnter={() => {
+                  if(!mapRef.current) return;
+                  const coordinates = [location.longitude, location.latitude];
+                  const popupHTML = buildPopup(location.name, location.images[0]);
+                  var popup = new mapboxgl.Popup({
+                    closeButton:  false,
+                    closeOnClick: false,
+                  });
+    
+                  mapRef.current.flyTo({ center: coordinates, esssential: true, speed: 0.35 })
+                  mapRef.current.fire('closeAllPopups');
+                  popup.setLngLat(coordinates).setHTML(popupHTML).addTo(mapRef.current);
+                  mapRef.current.on('closeAllPopups', () => {
+                    popup.remove();
+                  });
+                }
+              }
+              onMouseLeave={() => mapRef.current.fire('closeAllPopups')}
+              >
+              </div>
+            </div> 
+            <div className="cardTitle">{location.name}</div>
             <br/>
             <div className="cardDescription">
               {location.description.slice(0, 100)}  
@@ -133,6 +162,7 @@ const MemoizedSidebar = React.memo(Sidebar);
 function App() {
 
   const classes = useStyles();
+  const history = useHistory();
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
   const [lng, setLng] = useState(-113.4938);
@@ -144,7 +174,6 @@ function App() {
   const [locations, setLocations] = useState([]);
 
 
-
   const toggleMapType = () => {
     const newMapType = mapboxStyle === 'mapbox://styles/mapbox/streets-v11' ? 
     'mapbox://styles/mapbox/satellite-v9' : 'mapbox://styles/mapbox/streets-v11';
@@ -153,9 +182,9 @@ function App() {
 
   useEffect(() => {
     const originalsPromise = axios.get('https://v1.api.yegsecrets.ca/location/all');
-    // const suggestionsPromise = axios.get('http://api.yegsecrets.ca/suggestions/limited');
-    Promise.all([originalsPromise]).then(([originals]) => {
-      setLocations([...originals.data]);
+    const suggestionsPromise = axios.get('http://api.yegsecrets.ca/suggestions/limited');
+    Promise.all([originalsPromise, suggestionsPromise]).then(([originals, suggestions]) => {
+      setLocations([...originals.data, ...suggestions.data]);
     });
 
   }, []);
@@ -231,6 +260,10 @@ function App() {
 
       var hoveredID = null;
 
+      map.on('mousedown', 'locations', (e) => {
+        history.push('yegsecretsUAT/' + e.features[0].properties.title);
+      })
+
       map.on('mousemove', 'locations', (e) => {
 
         map.getCanvas().style.cursor = 'pointer';
@@ -302,10 +335,68 @@ function App() {
       <div className="topSpacer"></div>
       <div className="mainContent">
         <MemoizedSidebar open={open} locations={locations} mapRef={mapRef}/>
-        <div ref={mapContainer} className="map-container"/>
-      </div>
+        <RouterSwitch>
+          <Route path="/yegsecretsUAT/:locationName">
+            <Modal locations={locations}/>
+          </Route> 
+        </RouterSwitch>
+       </div>
+       <div ref={mapContainer} className="map-container"/>
     </>
   );
+}
+
+
+
+const Modal = ({ locations }) => {
+  const classes = useStyles();
+  const history = useHistory();
+  let { locationName } = useParams();
+  const locationIndex = locations.map(l => l.name).indexOf(locationName);
+  const location = locations[locationIndex];
+
+  const [imageIndex, setImageIndex] = useState(0);
+
+  if (!location) {
+    return null;
+  }
+
+  return (
+    <div className="modal">
+      <div className="modalTitle">
+        {location.name}
+        <IconButton
+        className={classes.modalCancelButton}
+        onClick={() => {
+          history.replace('/yegsecretsUAT')
+        }}
+        >
+            <CancelIcon className={classes.modalCancelIcon}/>
+        </IconButton>
+      </div>
+      <div className="modalImagesContainer">
+        <img className="modalImage" src={`https://s3-us-west-2.amazonaws.com/yeg-secrets/${location.images[imageIndex]}`}/>
+        {/* <IconButton
+          className={classes.modalImageButton}
+          onClick={() => setImageIndex(prev => (prev - 1) % (location.images.length || 1))}
+          >
+          <ChevronLeftIcon className={classes.modalImageButtonIcon}/>
+        </IconButton> */}
+        
+        {/* <IconButton
+          className={classes.modalImageButton}
+          onClick={() => setImageIndex(prev => (prev + 1) % (location.images.length || 1))}
+          >
+          <ChevronRightIcon className={classes.modalImageButtonIcon}/>
+      </IconButton> */}
+      </div>
+      <div className="modalDescriptionContainer">
+        <div className="modalDescription">
+          {location.description}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default App;
