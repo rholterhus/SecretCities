@@ -15,6 +15,7 @@ import SearchBar from "material-ui-search-bar";
 import CancelIcon from '@material-ui/icons/Cancel';
 import TextareaAutosize from '@material-ui/core/TextareaAutosize';
 import TextField from '@material-ui/core/TextField';
+import CircularProgress from '@material-ui/core/CircularProgress'
 
 import { Switch as RouterSwitch, Route, Link, useRouteMatch, useParams, useHistory} from 'react-router-dom';
 
@@ -58,6 +59,10 @@ const useStyles = makeStyles((theme) => ({
   },
   moadlImageButtonRight: {
     maxWidth: '10%',
+  },
+  loadingCircle: {
+    maxWidth: '50%',
+    maxHeight: '50%'
   }
 }));
 
@@ -126,7 +131,7 @@ const Sidebar = ({open, locations, mapRef}) => {
           <div 
             className="cardBase"
             id={"location-" + location.location_id}
-            onPointerDown={() => history.replace(location.name)}
+            onMouseDown={() => history.replace(location.name)}
           >
             <div className="cardButtonContainer">
               <div 
@@ -273,27 +278,6 @@ function App() {
           }
         });
 
-        // map.addSource('mapbox-dem', {
-        //   'type': 'raster-dem',
-        //   'url': 'mapbox://mapbox.mapbox-terrain-dem-v1',
-        //   'tileSize': 512,
-        //   'maxzoom': 14
-        // });
-        // // add the DEM source as a terrain layer with exaggerated height
-        // map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
-          
-        // // add a sky layer that will show when the map is highly pitched
-        // map.addLayer({
-        //   'id': 'sky',
-        //   'type': 'sky',
-        //   'paint': {
-        //     'sky-type': 'atmosphere',
-        //     'sky-atmosphere-sun': [0.0, 0.0],
-        //     'sky-atmosphere-sun-intensity': 15
-        //   }
-        // });
-
-
       });
 
       var popup = new mapboxgl.Popup({
@@ -395,14 +379,6 @@ function App() {
 }
 
 
-const sendRequest = (title, description, coordinates) => {
-  axios.post('https://secretcities.xyz:3000/suggestion',  {
-    title: title, 
-    description: description, 
-    coordinates: coordinates
-  }).then(resp => alert(resp));
-}
-
 const SuggestionPage = () => {
   const classes = useStyles();
   const history = useHistory();
@@ -410,34 +386,122 @@ const SuggestionPage = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [coordinates, setCoordinates] = useState('');
+  const [state, setState] = useState(0); // 0 is filling out, 1 is loading, 2 is finished
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    formData.append('title', title);
+    formData.append('description', description);
+    formData.append('coordinates', '(123, -123)');
+    setState(1);
+    axios.post("https://secretcities.xyz:8080/suggestion", formData, {headers: {'content-type': 'multipart/form-data'}})
+    .then(res => { 
+        setState(2);
+      })
+  }
+
+  const loadFile = function(event) {
+    var imagePreviews = document.getElementById('imagePreviews');
+    imagePreviews.innerHTML = '';
+    for (let i = 0; i < event.target.files.length; i++) {
+      let img = new Image();
+      img.className = 'suggestionImage'
+      img.src = URL.createObjectURL(event.target.files[i]);
+      img.onload = function() {
+        URL.revokeObjectURL(img.src);
+        imagePreviews.appendChild(img);
+      }
+    }
+  };
+
+  if (state == 1) {
+    return (
+      <div className="modal suggestionScreen">
+        <IconButton
+        className={classes.modalCancelButton}
+        onClick={() => {
+          if (!title && !description && !coordinates) {
+            history.replace('/MTLsecrets/');
+          } else {
+            if (window.confirm('Exiting will result in losing your work, are you sure?')) {
+              history.replace('/MTLsecrets/');
+            }
+          }
+        }}
+        >
+            <CancelIcon className={classes.modalCancelIcon}/>
+        </IconButton>
+        <div className="loadingCircle">
+          <CircularProgress className={classes.loadingCircle}/>
+        </div>
+      </div>
+    )
+  }
+
+  if (state == 2) {
+    return (
+      <div className="modal suggestionScreen">
+        <IconButton
+        className={classes.modalCancelButton}
+        onClick={() => {
+          if (!title && !description && !coordinates) {
+            history.replace('/MTLsecrets/');
+          } else {
+            if (window.confirm('Exiting will result in losing your work, are you sure?')) {
+              history.replace('/MTLsecrets/');
+            }
+          }
+        }}
+        >
+            <CancelIcon className={classes.modalCancelIcon}/>
+        </IconButton>
+        <div className="suggestionFinishedText">
+          Suggestion has been submitted. Thank you for being an active Edmontontonian!
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="modal suggestionScreen">
       <div className="modalTitle">
-        Suggest Location (Coming Soon)
+        Suggest Location
         <IconButton
         className={classes.modalCancelButton}
         onClick={() => {
-          history.replace('/MTLsecrets/')
+          if (!title && !description && !coordinates) {
+            history.replace('/MTLsecrets/');
+          } else {
+            if (window.confirm('Exiting will result in losing your work, are you sure?')) {
+              history.replace('/MTLsecrets/');
+            }
+          }
         }}
         >
             <CancelIcon className={classes.modalCancelIcon}/>
         </IconButton>
       </div>
-      {/* <div className="suggestionTitle">
-        <TextField id="suggestionTitle" onChange={(e) => setTitle(e.target.value)} label="Location Title" variant="outlined"/>
-      </div>
-      <div className="suggestionDescription">
-        <TextareaAutosize id="suggestionDescription" onChange={(e) => setDescription(e.target.value)} label="Location Title" placeholder="Location description"/>
-      </div>
-      <div className="suggestionDescription">
-        <TextField id="suggestionCoordinates" label="Coordinates" onChange={(e) => setCoordinates(e.target.value)} variant="outlined"/>
-      </div>
-      <div className="suggestionDescription">
-        <Button variant="contained" size="small" onClick={() => sendRequest(title, description, coordinates)}>
-          Submit
-        </Button>
-      </div> */}
+        <form onSubmit={handleSubmit} encType="multipart/form-data">
+          <div className="suggestionForm">
+            <div className="suggestionTitle"> 
+              <div>Title</div>
+              <input type="text" id="title" name="title" onChange={(e) => setTitle(e.target.value)}></input> 
+            </div>
+            <div className="suggestionDescription"> 
+              <div>Description</div>
+              <textarea type="text" id="description" name="description" onChange={(e) => setDescription(e.target.value)}></textarea> 
+            </div>
+            <div className="suggestionImages"> 
+              <div>Images</div>
+              <label htmlFor="image" className="imagesButton">&nbsp;&nbsp;&nbsp;Upload Images&nbsp;&nbsp;&nbsp;</label>
+              <input type="file" id="image" name="image" accept="image/*" multiple onChange={loadFile}  style={{ display: "none" }}/>
+              <div id="imagePreviews"></div>
+            </div>
+            
+            <button type="submit">Submit Suggestion</button>
+          </div>
+        </form>
     </div>
   )
 }
