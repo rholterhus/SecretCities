@@ -291,6 +291,42 @@
   height: 100%;
 }
 
+.suggestionMap {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  bottom: 0;
+}
+
+.suggestionMapContainer {
+  width: 50%;
+  height: 400px;
+  position: relative;
+}
+
+.suggestionCoordinates {
+  font-weight: 600;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  margin-bottom: 40px;
+}
+
+.submitButton {
+  background-color: lightcoral;
+  border: 2px solid black;
+  padding: 10px;
+  color: black;
+  margin-bottom: 40px;
+  transition: background-color 0.5s;
+}
 
 @media only screen and (max-width: 768px) {
   /* For mobile phones: */
@@ -317,11 +353,32 @@
   }
 
   .modalTitle {
-    font-size: x-large;
+    font-size: large;
   }
 
   .modalImage {
     max-width: 80%;
   }
+
+  .suggestionMapContainer {
+    width: 80%;
+  }
+
+  .suggestionDescription > textarea {
+    width: 80%;
+    max-width: 80%;
+   }
+
+   .modalDescriptionContainer {
+     font-size: small;
+   }
+
+   .suggestionFinishedText {
+     font-size: medium
+   }
+
+   .smallClose {
+     display: none !important;
+   }
 
 }

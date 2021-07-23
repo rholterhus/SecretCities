@@ -1,7 +1,7 @@
 {
   "name": "frontend",
   "version": "0.1.0",
-  "homepage": "http://rholterhus.github.io/MTLsecrets",
+  "homepage": "https://secretcities.ca",
   "private": true,
   "dependencies": {
     "@material-ui/core": "^4.12.1",

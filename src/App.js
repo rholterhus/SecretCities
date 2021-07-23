@@ -17,7 +17,19 @@ import TextareaAutosize from '@material-ui/core/TextareaAutosize';
 import TextField from '@material-ui/core/TextField';
 import CircularProgress from '@material-ui/core/CircularProgress'
 
-import { Switch as RouterSwitch, Route, Link, useRouteMatch, useParams, useHistory} from 'react-router-dom';
+import { Switch as RouterSwitch, Route, Link, useLocation, useParams, useHistory} from 'react-router-dom';
+
+import path from 'path';
+
+const removeSlashSuffix = (input)  => {
+  if (input.charAt(input.length - 1) === "/") {
+      return input.substr(0, input.length - 1)
+  } else {
+      return input;
+  }
+}
+
+const capitalize = str => str.charAt(0).toUpperCase() + str.slice(1)
 
 
 const axios = require('axios');
@@ -89,10 +101,11 @@ function mod(n, m) {
 
 
 
-const Sidebar = ({open, locations, mapRef}) => {
+const Sidebar = ({ open, locations, mapRef, city }) => {
 
   const [filter, setFilter] = useState('');
   const history = useHistory();
+  const urlLocation = useLocation();
 
   const filterUsed = /[a-zA-Z]/g.test(filter);
 
@@ -131,7 +144,7 @@ const Sidebar = ({open, locations, mapRef}) => {
           <div 
             className="cardBase"
             id={"location-" + location.location_id}
-            onMouseDown={() => history.replace(location.name)}
+            onMouseDown={() => history.replace(removeSlashSuffix(urlLocation.pathname) === `/${city}` ? `${removeSlashSuffix(urlLocation.pathname)}/${location.name}` : `/${city}/${location.name}`)}
           >
             <div className="cardButtonContainer">
               <div 
@@ -179,19 +192,21 @@ const MemoizedSidebar = React.memo(Sidebar);
 
 
 
-function App() {
+function App({ city, coordinates, id }) {
 
   const classes = useStyles();
   const history = useHistory();
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
-  const [lng, setLng] = useState(-73.6573);
-  const [lat, setLat] = useState(45.5017);
+  const [lng, setLng] = useState(coordinates[0]);
+  const [lat, setLat] = useState(coordinates[1]);
   const [zoom, setZoom] = useState(10);
+  const [pitch, setPitch] = useState(0);
+  const [bearing, setBearing] = useState(0);
   const [open, setOpen] = useState(false);
   const [mapboxStyle, setMapboxStyle] = useState('mapbox://styles/mapbox/streets-v11');
-
   const [locations, setLocations] = useState([]);
+  const location = useLocation();
 
 
   const toggleMapType = () => {
@@ -201,7 +216,7 @@ function App() {
   }
 
   useEffect(() => {
-    axios.get('https://secretcities.xyz:3000/locations')
+    axios.get(`https://secretcities.xyz:8080/locations?city_id=${id}`)
     .then((resp) => {
       const locations = resp.data.map(location => ({
         ...location,
@@ -214,27 +229,41 @@ function App() {
 
   
   useEffect(() => {
+    document.title = `${capitalize(city)} Secrets`
+  }, [])
+
+  useEffect(() => {
     const map = new mapboxgl.Map({
       container: mapContainer.current,
       style: mapboxStyle,
       center: [lng, lat],
-      zoom: zoom
+      zoom: zoom,
+      pitch: pitch, 
+      bearing: bearing,
     });
     mapRef.current = map
 
     // Add navigation control (the +/- zoom buttons)
     map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-    const topRightButtons = document.getElementsByClassName("mapboxgl-ctrl-top-right")[0].children[0];
-    const button = document.createElement("button");
-    button.addEventListener('click', () => toggleMapType());
-    button.innerHTML = `<button class="mapboxgl-cntrl-style" type="button" title="Toggle Map Style" style="display: flex;justify-content: center;align-items: center;"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M13.144 8.171c-.035-.066.342-.102.409-.102.074.009-.196.452-.409.102zm-2.152-3.072l.108-.031c.064.055-.072.095-.051.136.086.155.021.248.008.332-.014.085-.104.048-.149.093-.053.066.258.075.262.085.011.033-.375.089-.304.171.096.136.824-.195.708-.176.225-.113.029-.125-.097-.19-.043-.215-.079-.547-.213-.68l.088-.102c-.206-.299-.36.362-.36.362zm13.008 6.901c0 6.627-5.373 12-12 12-6.628 0-12-5.373-12-12s5.372-12 12-12c6.627 0 12 5.373 12 12zm-8.31-5.371c-.006-.146-.19-.284-.382-.031-.135.174-.111.439-.184.557-.104.175.567.339.567.174.025-.277.732-.063.87-.025.248.069.643-.226.211-.381-.355-.13-.542-.269-.574-.523 0 0 .188-.176.106-.166-.218.027-.614.786-.614.395zm6.296 5.371c0-1.035-.177-2.08-.357-2.632-.058-.174-.189-.312-.359-.378-.256-.1-1.337.597-1.5.254-.107-.229-.324.146-.572.008-.12-.066-.454-.515-.605-.46-.309.111.474.964.688 1.076.201-.152.852-.465.992-.038.268.804-.737 1.685-1.251 2.149-.768.694-.624-.449-1.147-.852-.275-.211-.272-.66-.55-.815-.124-.07-.693-.725-.688-.813l-.017.166c-.094.071-.294-.268-.315-.321 0 .295.48.765.639 1.001.271.405.416.995.748 1.326.178.178.858.914 1.035.898.193-.017.803-.458.911-.433.644.152-1.516 3.205-1.721 3.583-.169.317.138 1.101.113 1.476-.029.433-.37.573-.693.809-.346.253-.265.745-.556.925-.517.318-.889 1.353-1.623 1.348-.216-.001-1.14.36-1.261.007-.094-.256-.22-.45-.353-.703-.13-.248-.015-.505-.173-.724-.109-.152-.475-.497-.508-.677-.002-.155.117-.626.28-.708.229-.117.044-.458.016-.656-.048-.354-.267-.646-.53-.851-.389-.299-.188-.537-.097-.964 0-.204-.124-.472-.398-.392-.564.164-.393-.44-.804-.413-.296.021-.538.209-.813.292-.346.104-.7-.082-1.042-.125-1.407-.178-1.866-1.786-1.499-2.946.037-.19-.114-.542-.048-.689.158-.352.48-.747.762-1.014.158-.15.361-.112.547-.229.287-.181.291-.553.572-.781.4-.325.946-.318 1.468-.388.278-.037 1.336-.266 1.503-.06 0 .038.191.604-.019.572.433.023 1.05.749 1.461.579.211-.088.134-.736.567-.423.262.188 1.436.272 1.68.069.15-.124.234-.93.052-1.021.116.115-.611.124-.679.098-.12-.044-.232.114-.425.025.116.055-.646-.354-.218-.667-.179.131-.346-.037-.539.107-.133.108.062.18-.128.274-.302.153-.53-.525-.644-.602-.116-.076-1.014-.706-.77-.295l.789.785c-.039.025-.207-.286-.207-.059.053-.135.02.579-.104.347-.055-.089.09-.139.006-.268 0-.085-.228-.168-.272-.226-.125-.155-.457-.497-.637-.579-.05-.023-.764.087-.824.11-.07.098-.13.201-.179.311-.148.055-.287.126-.419.214l-.157.353c-.068.061-.765.291-.769.3.029-.075-.487-.171-.453-.321.038-.165.213-.68.168-.868-.048-.197 1.074.284 1.146-.235.029-.225.046-.487-.313-.525.068.008.695-.246.799-.36.146-.168.481-.442.724-.442.284 0 .223-.413.354-.615.131.053-.07.376.087.507-.01-.103.445.057.489.033.104-.054.684-.022.594-.294-.1-.277.051-.195.181-.253-.022.009.34-.619.402-.413-.043-.212-.421.074-.553.063-.305-.024-.176-.52-.061-.665.089-.115-.243-.256-.247-.036-.006.329-.312.627-.241 1.064.108.659-.735-.159-.809-.114-.28.17-.509-.214-.364-.444.148-.235.505-.224.652-.476.104-.178.225-.385.385-.52.535-.449.683-.09 1.216-.041.521.048.176.124.104.324-.069.19.286.258.409.099.07-.092.229-.323.298-.494.089-.222.901-.197.334-.536-.374-.223-2.004-.672-3.096-.672-.236 0-.401.263-.581.412-.356.295-1.268.874-1.775.698-.519-.179-1.63.66-1.808.666-.065.004.004-.634.358-.681-.153.023 1.247-.707 1.209-.859-.046-.18-2.799.822-2.676 1.023.059.092.299.092-.016.294-.18.109-.372.801-.541.801-.505.221-.537-.435-1.099.409l-.894.36c-1.328 1.411-2.247 3.198-2.58 5.183-.013.079.334.226.379.28.112.134.112.712.167.901.138.478.479.744.74 1.179.154.259.41.914.329 1.186.108-.178 1.07.815 1.246 1.022.414.487.733 1.077.061 1.559-.217.156.33 1.129.048 1.368l-.361.093c-.356.219-.195.756.021.982 1.818 1.901 4.38 3.087 7.22 3.087 5.517 0 9.989-4.472 9.989-9.989zm-11.507-6.357c.125-.055.293-.053.311-.22.015-.148.044-.046.08-.1.035-.053-.067-.138-.11-.146-.064-.014-.108.069-.149.104l-.072.019-.068.087.008.048-.087.106c-.085.084.002.139.087.102z"></path></svg></button>'`
-    topRightButtons.insertBefore(button, topRightButtons.firstChild);
+
+    let topRights = document.getElementsByClassName("mapboxgl-ctrl-top-right");
+    for (let i = 0; i < topRights.length; ++ i) {
+      const topRightButtons = topRights[i].children[0];
+      if (topRightButtons.childNodes.length < 4) {
+        const button = document.createElement("button");
+        button.addEventListener('click', () => toggleMapType());
+        button.innerHTML = `<button class="mapboxgl-cntrl-style" type="button" title="Toggle Map Style" style="display: flex;justify-content: center;align-items: center;"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M13.144 8.171c-.035-.066.342-.102.409-.102.074.009-.196.452-.409.102zm-2.152-3.072l.108-.031c.064.055-.072.095-.051.136.086.155.021.248.008.332-.014.085-.104.048-.149.093-.053.066.258.075.262.085.011.033-.375.089-.304.171.096.136.824-.195.708-.176.225-.113.029-.125-.097-.19-.043-.215-.079-.547-.213-.68l.088-.102c-.206-.299-.36.362-.36.362zm13.008 6.901c0 6.627-5.373 12-12 12-6.628 0-12-5.373-12-12s5.372-12 12-12c6.627 0 12 5.373 12 12zm-8.31-5.371c-.006-.146-.19-.284-.382-.031-.135.174-.111.439-.184.557-.104.175.567.339.567.174.025-.277.732-.063.87-.025.248.069.643-.226.211-.381-.355-.13-.542-.269-.574-.523 0 0 .188-.176.106-.166-.218.027-.614.786-.614.395zm6.296 5.371c0-1.035-.177-2.08-.357-2.632-.058-.174-.189-.312-.359-.378-.256-.1-1.337.597-1.5.254-.107-.229-.324.146-.572.008-.12-.066-.454-.515-.605-.46-.309.111.474.964.688 1.076.201-.152.852-.465.992-.038.268.804-.737 1.685-1.251 2.149-.768.694-.624-.449-1.147-.852-.275-.211-.272-.66-.55-.815-.124-.07-.693-.725-.688-.813l-.017.166c-.094.071-.294-.268-.315-.321 0 .295.48.765.639 1.001.271.405.416.995.748 1.326.178.178.858.914 1.035.898.193-.017.803-.458.911-.433.644.152-1.516 3.205-1.721 3.583-.169.317.138 1.101.113 1.476-.029.433-.37.573-.693.809-.346.253-.265.745-.556.925-.517.318-.889 1.353-1.623 1.348-.216-.001-1.14.36-1.261.007-.094-.256-.22-.45-.353-.703-.13-.248-.015-.505-.173-.724-.109-.152-.475-.497-.508-.677-.002-.155.117-.626.28-.708.229-.117.044-.458.016-.656-.048-.354-.267-.646-.53-.851-.389-.299-.188-.537-.097-.964 0-.204-.124-.472-.398-.392-.564.164-.393-.44-.804-.413-.296.021-.538.209-.813.292-.346.104-.7-.082-1.042-.125-1.407-.178-1.866-1.786-1.499-2.946.037-.19-.114-.542-.048-.689.158-.352.48-.747.762-1.014.158-.15.361-.112.547-.229.287-.181.291-.553.572-.781.4-.325.946-.318 1.468-.388.278-.037 1.336-.266 1.503-.06 0 .038.191.604-.019.572.433.023 1.05.749 1.461.579.211-.088.134-.736.567-.423.262.188 1.436.272 1.68.069.15-.124.234-.93.052-1.021.116.115-.611.124-.679.098-.12-.044-.232.114-.425.025.116.055-.646-.354-.218-.667-.179.131-.346-.037-.539.107-.133.108.062.18-.128.274-.302.153-.53-.525-.644-.602-.116-.076-1.014-.706-.77-.295l.789.785c-.039.025-.207-.286-.207-.059.053-.135.02.579-.104.347-.055-.089.09-.139.006-.268 0-.085-.228-.168-.272-.226-.125-.155-.457-.497-.637-.579-.05-.023-.764.087-.824.11-.07.098-.13.201-.179.311-.148.055-.287.126-.419.214l-.157.353c-.068.061-.765.291-.769.3.029-.075-.487-.171-.453-.321.038-.165.213-.68.168-.868-.048-.197 1.074.284 1.146-.235.029-.225.046-.487-.313-.525.068.008.695-.246.799-.36.146-.168.481-.442.724-.442.284 0 .223-.413.354-.615.131.053-.07.376.087.507-.01-.103.445.057.489.033.104-.054.684-.022.594-.294-.1-.277.051-.195.181-.253-.022.009.34-.619.402-.413-.043-.212-.421.074-.553.063-.305-.024-.176-.52-.061-.665.089-.115-.243-.256-.247-.036-.006.329-.312.627-.241 1.064.108.659-.735-.159-.809-.114-.28.17-.509-.214-.364-.444.148-.235.505-.224.652-.476.104-.178.225-.385.385-.52.535-.449.683-.09 1.216-.041.521.048.176.124.104.324-.069.19.286.258.409.099.07-.092.229-.323.298-.494.089-.222.901-.197.334-.536-.374-.223-2.004-.672-3.096-.672-.236 0-.401.263-.581.412-.356.295-1.268.874-1.775.698-.519-.179-1.63.66-1.808.666-.065.004.004-.634.358-.681-.153.023 1.247-.707 1.209-.859-.046-.18-2.799.822-2.676 1.023.059.092.299.092-.016.294-.18.109-.372.801-.541.801-.505.221-.537-.435-1.099.409l-.894.36c-1.328 1.411-2.247 3.198-2.58 5.183-.013.079.334.226.379.28.112.134.112.712.167.901.138.478.479.744.74 1.179.154.259.41.914.329 1.186.108-.178 1.07.815 1.246 1.022.414.487.733 1.077.061 1.559-.217.156.33 1.129.048 1.368l-.361.093c-.356.219-.195.756.021.982 1.818 1.901 4.38 3.087 7.22 3.087 5.517 0 9.989-4.472 9.989-9.989zm-11.507-6.357c.125-.055.293-.053.311-.22.015-.148.044-.046.08-.1.035-.053-.067-.138-.11-.146-.064-.014-.108.069-.149.104l-.072.019-.068.087.008.048-.087.106c-.085.084.002.139.087.102z"></path></svg></button>'`
+        topRightButtons.insertBefore(button, topRightButtons.firstChild);
+      }
+    }
 
     map.on('move', () => {
       setLng(map.getCenter().lng.toFixed(4));
       setLat(map.getCenter().lat.toFixed(4));
       setZoom(map.getZoom().toFixed(2));
+      setPitch(map.getPitch().toFixed(4));
+      setBearing(map.getBearing().toFixed(4));
     });
 
     map.on('load', () => {
@@ -288,7 +317,7 @@ function App() {
       var hoveredID = null;
 
       map.on('mousedown', 'locations', (e) => {
-        history.push(e.features[0].properties.title);
+        history.push(`${removeSlashSuffix(location.pathname)}/${e.features[0].properties.title}`);
       })
 
       map.on('mousemove', 'locations', (e) => {
@@ -349,27 +378,27 @@ function App() {
     <>
       <div className="topbar">
         <IconButton
-          className={classes.menuButton}
+          className={classes.menuButton + (path.dirname(location.pathname) === '/' ? "" : " smallClose")}
           onClick={() => setOpen(prev => !prev)}
         >
             {open ? <ChevronLeftIcon className={classes.menuIcon}/> : <MenuIcon className={classes.menuIcon}/> }
         </IconButton>
         <div className="logo">
-          MTLSECRETS
+          {`City Secrets - ${capitalize(city)}`}
         </div>
-        <Button size='small' variant='contained' onClick={() => history.push('suggest')} className={classes.suggestButton}>
+        <Button size='small' variant='contained' onClick={() => history.push(removeSlashSuffix(location.pathname) === `/${city}` ? `${removeSlashSuffix(location.pathname)}/suggest` : `/${city}/suggest`)} className={classes.suggestButton}>
           Suggest
         </Button>
       </div>
       <div className="topSpacer"></div>
       <div className="mainContent">
-        <MemoizedSidebar open={open} locations={locations} mapRef={mapRef}/>
+        <MemoizedSidebar open={open} locations={locations} mapRef={mapRef} city={city}/>
         <RouterSwitch>
-          <Route exact path="/MTLsecrets/suggest">
-            <SuggestionPage/>
+          <Route exact path={`/${city}/suggest`}>
+            <SuggestionPage city={city} coordinates={coordinates}/>
           </Route> 
-          <Route path="/MTLsecrets/:locationName">
-            <Modal locations={locations}/>
+          <Route path={`/${city}/:locationName`}>
+            <Modal locations={locations} city={city}/>
           </Route>
         </RouterSwitch>
        </div>
@@ -379,24 +408,120 @@ function App() {
 }
 
 
-const SuggestionPage = () => {
+const SuggestionPage = ({ city, coordinates }) => {
   const classes = useStyles();
   const history = useHistory();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [coordinates, setCoordinates] = useState('');
+  const [mapCoordinates, setMapCoordinates] = useState(coordinates);
   const [state, setState] = useState(0); // 0 is filling out, 1 is loading, 2 is finished
+  const [mapStyle, setMapStyle] = useState('mapbox://styles/mapbox/streets-v11');
+  const mapRef = useRef(null);
+
+  const [lng, setLng] = useState(coordinates[0]);
+  const [lat, setLat] = useState(coordinates[1]);
+  const [zoom, setZoom] = useState(10);
+  const [pitch, setPitch] = useState(0);
+  const [bearing, setBearing] = useState(0);
+
+
+  const toggleMapType = () => {
+    const newMapType = mapStyle === 'mapbox://styles/mapbox/streets-v11' ? 
+    'mapbox://styles/mapbox/satellite-v9' : 'mapbox://styles/mapbox/streets-v11';
+    setMapStyle(newMapType);
+  }
+
+
+  useEffect(() => {
+    const suggestionMap = new mapboxgl.Map({
+      container: 'suggestionMap',
+      style: mapStyle,
+      center: [lng, lat],
+      zoom: zoom,
+      pitch: pitch, 
+      bearing: bearing,
+    });
+    mapRef.current = suggestionMap
+
+
+    suggestionMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+    suggestionMap.on('move', () => {
+      setLng(suggestionMap.getCenter().lng.toFixed(4));
+      setLat(suggestionMap.getCenter().lat.toFixed(4));
+      setZoom(suggestionMap.getZoom().toFixed(2));
+      setPitch(suggestionMap.getPitch().toFixed(4));
+      setBearing(suggestionMap.getBearing().toFixed(4));
+    });
+
+    let topRights = document.getElementsByClassName("mapboxgl-ctrl-top-right");
+    for (let i = 0; i < topRights.length; ++ i) {
+      const topRightButtons = topRights[i].children[0];
+      if (topRightButtons.childNodes.length < 4) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.addEventListener('click', () => toggleMapType());
+        button.innerHTML = `<button class="mapboxgl-cntrl-style" type="button" title="Toggle Map Style" style="display: flex;justify-content: center;align-items: center;"><svg width="20" height="20" viewBox="0 0 24 24"><path d="M13.144 8.171c-.035-.066.342-.102.409-.102.074.009-.196.452-.409.102zm-2.152-3.072l.108-.031c.064.055-.072.095-.051.136.086.155.021.248.008.332-.014.085-.104.048-.149.093-.053.066.258.075.262.085.011.033-.375.089-.304.171.096.136.824-.195.708-.176.225-.113.029-.125-.097-.19-.043-.215-.079-.547-.213-.68l.088-.102c-.206-.299-.36.362-.36.362zm13.008 6.901c0 6.627-5.373 12-12 12-6.628 0-12-5.373-12-12s5.372-12 12-12c6.627 0 12 5.373 12 12zm-8.31-5.371c-.006-.146-.19-.284-.382-.031-.135.174-.111.439-.184.557-.104.175.567.339.567.174.025-.277.732-.063.87-.025.248.069.643-.226.211-.381-.355-.13-.542-.269-.574-.523 0 0 .188-.176.106-.166-.218.027-.614.786-.614.395zm6.296 5.371c0-1.035-.177-2.08-.357-2.632-.058-.174-.189-.312-.359-.378-.256-.1-1.337.597-1.5.254-.107-.229-.324.146-.572.008-.12-.066-.454-.515-.605-.46-.309.111.474.964.688 1.076.201-.152.852-.465.992-.038.268.804-.737 1.685-1.251 2.149-.768.694-.624-.449-1.147-.852-.275-.211-.272-.66-.55-.815-.124-.07-.693-.725-.688-.813l-.017.166c-.094.071-.294-.268-.315-.321 0 .295.48.765.639 1.001.271.405.416.995.748 1.326.178.178.858.914 1.035.898.193-.017.803-.458.911-.433.644.152-1.516 3.205-1.721 3.583-.169.317.138 1.101.113 1.476-.029.433-.37.573-.693.809-.346.253-.265.745-.556.925-.517.318-.889 1.353-1.623 1.348-.216-.001-1.14.36-1.261.007-.094-.256-.22-.45-.353-.703-.13-.248-.015-.505-.173-.724-.109-.152-.475-.497-.508-.677-.002-.155.117-.626.28-.708.229-.117.044-.458.016-.656-.048-.354-.267-.646-.53-.851-.389-.299-.188-.537-.097-.964 0-.204-.124-.472-.398-.392-.564.164-.393-.44-.804-.413-.296.021-.538.209-.813.292-.346.104-.7-.082-1.042-.125-1.407-.178-1.866-1.786-1.499-2.946.037-.19-.114-.542-.048-.689.158-.352.48-.747.762-1.014.158-.15.361-.112.547-.229.287-.181.291-.553.572-.781.4-.325.946-.318 1.468-.388.278-.037 1.336-.266 1.503-.06 0 .038.191.604-.019.572.433.023 1.05.749 1.461.579.211-.088.134-.736.567-.423.262.188 1.436.272 1.68.069.15-.124.234-.93.052-1.021.116.115-.611.124-.679.098-.12-.044-.232.114-.425.025.116.055-.646-.354-.218-.667-.179.131-.346-.037-.539.107-.133.108.062.18-.128.274-.302.153-.53-.525-.644-.602-.116-.076-1.014-.706-.77-.295l.789.785c-.039.025-.207-.286-.207-.059.053-.135.02.579-.104.347-.055-.089.09-.139.006-.268 0-.085-.228-.168-.272-.226-.125-.155-.457-.497-.637-.579-.05-.023-.764.087-.824.11-.07.098-.13.201-.179.311-.148.055-.287.126-.419.214l-.157.353c-.068.061-.765.291-.769.3.029-.075-.487-.171-.453-.321.038-.165.213-.68.168-.868-.048-.197 1.074.284 1.146-.235.029-.225.046-.487-.313-.525.068.008.695-.246.799-.36.146-.168.481-.442.724-.442.284 0 .223-.413.354-.615.131.053-.07.376.087.507-.01-.103.445.057.489.033.104-.054.684-.022.594-.294-.1-.277.051-.195.181-.253-.022.009.34-.619.402-.413-.043-.212-.421.074-.553.063-.305-.024-.176-.52-.061-.665.089-.115-.243-.256-.247-.036-.006.329-.312.627-.241 1.064.108.659-.735-.159-.809-.114-.28.17-.509-.214-.364-.444.148-.235.505-.224.652-.476.104-.178.225-.385.385-.52.535-.449.683-.09 1.216-.041.521.048.176.124.104.324-.069.19.286.258.409.099.07-.092.229-.323.298-.494.089-.222.901-.197.334-.536-.374-.223-2.004-.672-3.096-.672-.236 0-.401.263-.581.412-.356.295-1.268.874-1.775.698-.519-.179-1.63.66-1.808.666-.065.004.004-.634.358-.681-.153.023 1.247-.707 1.209-.859-.046-.18-2.799.822-2.676 1.023.059.092.299.092-.016.294-.18.109-.372.801-.541.801-.505.221-.537-.435-1.099.409l-.894.36c-1.328 1.411-2.247 3.198-2.58 5.183-.013.079.334.226.379.28.112.134.112.712.167.901.138.478.479.744.74 1.179.154.259.41.914.329 1.186.108-.178 1.07.815 1.246 1.022.414.487.733 1.077.061 1.559-.217.156.33 1.129.048 1.368l-.361.093c-.356.219-.195.756.021.982 1.818 1.901 4.38 3.087 7.22 3.087 5.517 0 9.989-4.472 9.989-9.989zm-11.507-6.357c.125-.055.293-.053.311-.22.015-.148.044-.046.08-.1.035-.053-.067-.138-.11-.146-.064-.014-.108.069-.149.104l-.072.019-.068.087.008.048-.087.106c-.085.084.002.139.087.102z"></path></svg></button>'`
+        topRightButtons.insertBefore(button, topRightButtons.firstChild);
+      }
+    }
+
+
+    suggestionMap.on('load', (e) => {
+      suggestionMap.addSource('clickedLocation', {
+        'type': 'geojson',
+        'data': {
+          'type': 'FeatureCollection',
+          'features': [{
+              'geometry': {
+                'type': 'Point',
+                'coordinates': mapCoordinates
+              }
+            }]
+          }
+        }
+      );
+  
+      suggestionMap.addLayer({
+        'id': 'clickedLocation',
+        'type': 'circle',
+        'source': 'clickedLocation',
+        'paint': {
+          'circle-color': '#ff0000',
+          'circle-radius': 10,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': '#000000'
+        }
+      });
+
+      });
+
+      suggestionMap.on('click', (e) => {
+        setMapCoordinates([e.lngLat.lng, e.lngLat.lat]);
+        suggestionMap.getSource('clickedLocation').setData({
+          'type': 'FeatureCollection',
+            'features': [{
+                'geometry': {
+                  'type': 'Point',
+                  'coordinates': [e.lngLat.lng, e.lngLat.lat]
+                }
+              }]
+          })
+      });
+    }, [mapStyle]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     const formData = new FormData(e.target);
     formData.append('title', title);
     formData.append('description', description);
-    formData.append('coordinates', '(123, -123)');
+    formData.append('coordinates', `(${mapCoordinates[0]}, ${mapCoordinates[1]})`);
     setState(1);
     axios.post("https://secretcities.xyz:8080/suggestion", formData, {headers: {'content-type': 'multipart/form-data'}})
     .then(res => { 
+        setTitle('');
+        setDescription('');
         setState(2);
       })
   }
@@ -421,11 +546,11 @@ const SuggestionPage = () => {
         <IconButton
         className={classes.modalCancelButton}
         onClick={() => {
-          if (!title && !description && !coordinates) {
-            history.replace('/MTLsecrets/');
+          if (!title && !description) {
+            history.replace(`/${city}/`);
           } else {
             if (window.confirm('Exiting will result in losing your work, are you sure?')) {
-              history.replace('/MTLsecrets/');
+              history.replace(`/${city}/`);
             }
           }
         }}
@@ -445,11 +570,11 @@ const SuggestionPage = () => {
         <IconButton
         className={classes.modalCancelButton}
         onClick={() => {
-          if (!title && !description && !coordinates) {
-            history.replace('/MTLsecrets/');
+          if (!title && !description) {
+            history.replace(`/${city}/`);
           } else {
             if (window.confirm('Exiting will result in losing your work, are you sure?')) {
-              history.replace('/MTLsecrets/');
+              history.replace(`/${city}/`);
             }
           }
         }}
@@ -457,7 +582,7 @@ const SuggestionPage = () => {
             <CancelIcon className={classes.modalCancelIcon}/>
         </IconButton>
         <div className="suggestionFinishedText">
-          Suggestion has been submitted. Thank you for being an active Edmontontonian!
+          Suggestion has been submitted. Thank you for being an active Montrealer!
         </div>
       </div>
     )
@@ -470,11 +595,11 @@ const SuggestionPage = () => {
         <IconButton
         className={classes.modalCancelButton}
         onClick={() => {
-          if (!title && !description && !coordinates) {
-            history.replace('/MTLsecrets/');
+          if (!title && !description) {
+            history.replace(`/${city}/`);
           } else {
             if (window.confirm('Exiting will result in losing your work, are you sure?')) {
-              history.replace('/MTLsecrets/');
+              history.replace(`/${city}/`);
             }
           }
         }}
@@ -492,14 +617,19 @@ const SuggestionPage = () => {
               <div>Description</div>
               <textarea type="text" id="description" name="description" onChange={(e) => setDescription(e.target.value)}></textarea> 
             </div>
+            <div className="suggestionCoordinates"> 
+              <div>Coordinates (Click Map)</div>
+              <div className="suggestionMapContainer">
+                <div className="suggestionMap" id="suggestionMap"/>
+              </div>
+            </div>
             <div className="suggestionImages"> 
               <div>Images</div>
               <label htmlFor="image" className="imagesButton">&nbsp;&nbsp;&nbsp;Upload Images&nbsp;&nbsp;&nbsp;</label>
               <input type="file" id="image" name="image" accept="image/*" multiple onChange={loadFile}  style={{ display: "none" }}/>
               <div id="imagePreviews"></div>
             </div>
-            
-            <button type="submit">Submit Suggestion</button>
+            <button type="submit" className="submitButton">Submit Suggestion</button>
           </div>
         </form>
     </div>
@@ -507,7 +637,7 @@ const SuggestionPage = () => {
 }
 
 
-const Modal = ({ locations }) => {
+const Modal = ({ locations, city }) => {
   const classes = useStyles();
   const history = useHistory();
   let { locationName } = useParams();
@@ -527,7 +657,7 @@ const Modal = ({ locations }) => {
         <IconButton
         className={classes.modalCancelButton}
         onClick={() => {
-          history.replace('/MTLsecrets/')
+          history.replace(`/${city}/`)
         }}
         >
             <CancelIcon className={classes.modalCancelIcon}/>
