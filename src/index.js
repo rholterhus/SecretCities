@@ -29,7 +29,12 @@ ReactDOM.render(
           </Route>
         )}
         <Route exact path='/'>
-          BASE PATH
+          {cities.map(city => 
+            <>
+              <a href={`${city.name}`}>{city.name}</a>
+              <br/>
+            </>
+          )}
         </Route>
       </Switch>
     </Router>

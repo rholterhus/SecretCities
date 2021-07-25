@@ -381,4 +381,13 @@
      display: none !important;
    }
 
+   .logo {
+     font-size: small;
+     letter-spacing: 0.1em;
+   }
+
+   .suggestButton {
+     font-size: x-small !important;
+   }
+
 }
