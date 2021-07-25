@@ -29,7 +29,33 @@ const removeSlashSuffix = (input)  => {
   }
 }
 
-const capitalize = str => str.charAt(0).toUpperCase() + str.slice(1)
+const capitalize = str => str.charAt(0).toUpperCase() + str.slice(1);
+
+const addUserToMap = (map, userPosition) => {
+  map.addSource('user', {
+    'type': 'geojson',
+    'data': {
+      'type': 'FeatureCollection',
+      'features': [{
+        'geometry': {
+          'type': 'Point',
+          'coordinates': [userPosition.coords.longitude, userPosition.coords.latitude]
+        }
+      }]
+    }
+  }
+  );
+  
+  map.addLayer({
+    'id': 'user',
+    'type': 'circle',
+    'source': 'user',
+    'paint': {
+      'circle-color': '#00ffff',
+      'circle-radius': 5,
+    }
+  });
+}
 
 
 const axios = require('axios');
@@ -52,6 +78,11 @@ const useStyles = makeStyles((theme) => ({
   modalCancelButton: {
     position: 'absolute',
     right: 0,
+  },
+  startModalClose: {
+    position: 'absolute',
+    right: 0,
+    top: 0
   },
   modalCancelIcon: {
     fill: 'black',
@@ -143,6 +174,7 @@ const Sidebar = ({ open, locations, mapRef, city }) => {
         {filteredLocations.map(location => 
           <div 
             className="cardBase"
+            key={location.location_id}
             id={"location-" + location.location_id}
             onMouseDown={() => history.replace(removeSlashSuffix(urlLocation.pathname) === `/${city}` ? `${removeSlashSuffix(urlLocation.pathname)}/${location.name}` : `/${city}/${location.name}`)}
           >
@@ -178,7 +210,7 @@ const Sidebar = ({ open, locations, mapRef, city }) => {
             <div className="cardTitle">{location.name}</div>
             <br/>
             <div className="cardDescription">
-              {location.description.slice(0, 100)}  
+              {location.description.slice(0, 100) + "..."}  
             </div>
           </div>
         )}
@@ -204,6 +236,8 @@ function App({ city, coordinates, id }) {
   const [pitch, setPitch] = useState(0);
   const [bearing, setBearing] = useState(0);
   const [open, setOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(!localStorage.getItem('startModal'));
+  const [userPosition, setUserPosition] = useState(null);
   const [mapboxStyle, setMapboxStyle] = useState('mapbox://styles/mapbox/streets-v11');
   const [locations, setLocations] = useState([]);
   const location = useLocation();
@@ -214,6 +248,14 @@ function App({ city, coordinates, id }) {
     'mapbox://styles/mapbox/satellite-v9' : 'mapbox://styles/mapbox/streets-v11';
     setMapboxStyle(newMapType);
   }
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((position) => {
+        setUserPosition(position);
+      });
+    }
+  }, []);
 
   useEffect(() => {
     axios.get(`https://secretcities.xyz:8080/locations?city_id=${id}`)
@@ -290,7 +332,11 @@ function App({ city, coordinates, id }) {
             })
           }
         });
-    
+
+        if (userPosition) {
+          addUserToMap(map, userPosition)
+        }
+          
         map.addLayer({
           'id': 'locations',
           'type': 'circle',
@@ -372,7 +418,7 @@ function App({ city, coordinates, id }) {
     });
       
     return () => map.remove();
-  }, [locations, mapboxStyle]);
+  }, [locations, mapboxStyle, userPosition]);
 
 
   return (
@@ -398,6 +444,14 @@ function App({ city, coordinates, id }) {
       </div>
       <div className="topSpacer"></div>
       <div className="mainContent">
+        {modalOpen ? 
+          <StartModal city={city} closeModal={() => { 
+            setModalOpen(false);
+            window.localStorage.setItem('startModal', true);
+          }}
+          /> 
+          : 
+          null}
         <MemoizedSidebar open={open} locations={locations} mapRef={mapRef} city={city}/>
         <RouterSwitch>
           <Route exact path={`/${city}/suggest`}>
@@ -660,6 +714,10 @@ const Modal = ({ locations, city }) => {
 
   const [imageIndex, setImageIndex] = useState(0);
 
+  useEffect(() => {
+    setImageIndex(0);
+  }, [locationName]);
+
   if (!location) {
     return null;
   }
@@ -678,24 +736,25 @@ const Modal = ({ locations, city }) => {
         </IconButton>
       </div>
       <div className="modalImagesContainer">
-        { location.images.length > 1 ?
-        <IconButton
-          className={classes.modalImageButtonLeft}
-          onClick={() => setImageIndex(prev => mod(prev - 1, location.images.length || 1))}
-        >
-          <ChevronLeftIcon className={classes.modalImageButtonIcon}/>
+          { location.images.length > 1 ?
+          <IconButton
+            className={classes.modalImageButtonLeft}
+            onClick={() => setImageIndex(prev => mod(prev - 1, location.images.length || 1))}
+          >
+            <ChevronLeftIcon className={classes.modalImageButtonIcon}/>
+          </IconButton>
+          :
+          null
+          }
+          <img className="modalImage" src={location.images[imageIndex]}/>
+          
+          { location.images.length > 1 ?
+          <IconButton
+            className={classes.modalImageButtonRight}
+            onClick={() => setImageIndex(prev => mod(prev + 1, location.images.length || 1))}
+          >
+            <ChevronRightIcon className={classes.modalImageButtonIcon}/>
         </IconButton>
-        :
-        null
-        }
-        <img className="modalImage" src={location.images[imageIndex]}/>
-        { location.images.length > 1 ?
-        <IconButton
-          className={classes.modalImageButtonRight}
-          onClick={() => setImageIndex(prev => mod(prev + 1, location.images.length || 1))}
-        >
-          <ChevronRightIcon className={classes.modalImageButtonIcon}/>
-      </IconButton>
       :
       null
       }
@@ -703,6 +762,37 @@ const Modal = ({ locations, city }) => {
       <div className="modalDescriptionContainer">
         <div className="modalDescription">
           {location.description}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const StartModal = ({ city, closeModal }) => {
+  const classes = useStyles();
+
+  return (
+    <div className="startModal">
+      <div className="startModalCard">
+        <div className="startModalTitle">
+          Welcome,
+          <IconButton
+          className={classes.startModalClose}
+          onClick={closeModal}
+          >
+              <CancelIcon className={classes.modalCancelIcon}/>
+          </IconButton>
+        </div>
+        <div className="startModalDescription">
+          This is a website dedicated to featuring cool/interesting/secret locations around {capitalize(city)}. In the top right corner there is a button that allows you 
+          to suggest locations to be added for others to enjoy. Once your suggestion is submitted it should be posted in a few hours.
+
+          <br/>
+          <br/>
+
+          If you want, you can allow this website to know your location and it will display it as a blue dot on the map. This is optional, and even if you do enable it, we do
+          not store this information.
+
         </div>
       </div>
     </div>
